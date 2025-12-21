@@ -1,0 +1,1 @@
+# AITrainingCandidate model placeholder

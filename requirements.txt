@@ -1,0 +1,7 @@
+# Project dependencies
+# e.g.
+# fastapi
+# uvicorn
+# sqlalchemy
+# alembic
+# python-dotenv

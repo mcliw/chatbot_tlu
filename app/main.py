@@ -6,6 +6,8 @@ from app.database.session import engine, SessionLocal
 from app.database.base import Base
 from app.api.api_v1.api import api_router
 import app.models
+from fastapi.staticfiles import StaticFiles
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,5 +33,12 @@ app = FastAPI(title="TLU Database Init", lifespan=lifespan)
 def health_check():
     return {"message": "Database is ready!", "status": "connected"}
 
+# Include API router
 settings = Settings()
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+#Static files setup
+if not os.path.exists("static"):
+    os.makedirs("static")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -1,7 +1,9 @@
-# Project dependencies
-# e.g.
-# fastapi
-# uvicorn
-# sqlalchemy
-# alembic
-# python-dotenv
+fastapi
+uvicorn
+sqlalchemy
+alembic
+python-dotenv
+mysql-connector-python
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart  <-- Quan trọng để fix lỗi upload file

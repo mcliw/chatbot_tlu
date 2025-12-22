@@ -27,3 +27,16 @@ class TrainingStatus(str, Enum):
     NEW = "NEW"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+
+# app/shared/enums.py
+from enum import Enum
+
+class UserRole(str, Enum):
+    ADMIN = "ADMIN"
+    STUDENT = "STUDENT"
+    TEACHER = "TEACHER"
+
+class AcademicStatus(str, Enum):
+    ACTIVE = "active"
+    WARNING = "warning"
+    DANGER = "danger"

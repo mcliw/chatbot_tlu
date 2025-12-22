@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
+from app.core.config import Settings
 from app.database.session import engine, SessionLocal
 from app.database.base import Base
+from app.api.api_v1.api import api_router
 import app.models
 
 @asynccontextmanager
@@ -28,3 +30,6 @@ app = FastAPI(title="TLU Database Init", lifespan=lifespan)
 @app.get("/")
 def health_check():
     return {"message": "Database is ready!", "status": "connected"}
+
+settings = Settings()
+app.include_router(api_router, prefix=settings.API_V1_STR)

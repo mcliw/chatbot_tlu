@@ -1,8 +1,7 @@
-# app/services/student_service.py
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from fastapi import HTTPException, UploadFile
-from typing import Optional, List
+from typing import Optional
 import logging
 
 from app.models.user import User, Student
@@ -19,10 +18,10 @@ class StudentService:
 
     def get_student_profile(self, user_id: str) -> StudentProfileResponse:
         """
-        Lấy thông tin chi tiết (Join User + Student)
-        Dùng Eager Loading (joinedload) để tối ưu query
+        Lấy thông tin chi tiết (User + Student Info)
         """
         try:
+            # Join bảng User và Student (nếu có)
             user = self.db.query(User).options(
                 joinedload(User.student_profile)
             ).filter(User.id == user_id).first()
@@ -30,16 +29,17 @@ class StudentService:
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             
-            # Map dữ liệu sang Schema
+            # Lấy thông tin student (có thể None nếu user chưa có profile student)
             student_info = user.student_profile
             
             return StudentProfileResponse(
                 user_id=user.id,
                 full_name=user.full_name,
                 email=user.email,
-                avatar=user.avatar,
+                avatar=user.avatar, # Cột avatar trong bảng users
                 phone=user.phone,
                 address=user.address,
+                # Các trường từ bảng students (handle None an toàn)
                 student_code=student_info.student_code if student_info else None,
                 class_name=student_info.class_name if student_info else None,
                 faculty=student_info.faculty if student_info else None,
@@ -47,41 +47,57 @@ class StudentService:
                 academic_status=student_info.academic_status if student_info else None,
                 last_contact=student_info.last_contact if student_info else None
             )
+        except HTTPException as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching profile: {e}")
-            raise e
+            raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    async def update_profile(self, user_id: str, data: UpdateProfileRequest, avatar_file: Optional[UploadFile]) -> StudentProfileResponse:
+    async def update_profile(
+        self, 
+        user_id: str, 
+        data: UpdateProfileRequest, 
+        avatar_file: Optional[UploadFile]
+    ) -> StudentProfileResponse:
         """
         Cập nhật Profile & Avatar.
-        Sử dụng Transaction thủ công để đảm bảo tính toàn vẹn.
         """
-        try:
-            user = self.db.query(User).filter(User.id == user_id).first()
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
+        # 1. Tìm user
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-            # 1. Xử lý File (nếu có)
+        try:
+            # 2. Xử lý File Avatar (nếu client có gửi)
             if avatar_file:
-                # Lưu file mới, xóa file cũ, nhận đường dẫn mới
-                new_avatar_path = await self.file_service.save_avatar(avatar_file, user.avatar)
+                # Lưu file mới và lấy đường dẫn
+                # Truyền user.avatar hiện tại vào để xóa file cũ
+                new_avatar_path = await self.file_service.save_avatar(avatar_file, old_avatar_path=user.avatar)
+                
+                # Cập nhật đường dẫn vào DB
                 user.avatar = new_avatar_path
 
-            # 2. Cập nhật thông tin text
+            # 3. Cập nhật các thông tin text (chỉ update nếu có gửi lên)
             if data.phone is not None:
                 user.phone = data.phone
             if data.address is not None:
                 user.address = data.address
 
-            # 3. Commit Transaction
+            # 4. Commit vào Database
             self.db.add(user)
             self.db.commit()
-            self.db.refresh(user) # Reload data sau khi commit
+            
+            # 5. Refresh để lấy data mới nhất từ DB (quan trọng)
+            self.db.refresh(user)
 
+            # 6. Trả về data profile mới nhất
             return self.get_student_profile(user_id)
 
+        except HTTPException as e:
+            self.db.rollback()
+            raise e
         except Exception as e:
-            self.db.rollback() # Rollback DB nếu lỗi
+            self.db.rollback()
             logger.error(f"Error updating profile for user {user_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to update profile")
 
@@ -96,10 +112,10 @@ class StudentService:
         API cho Admin: List, Search, Filter, Pagination
         """
         try:
-            # Query cơ bản join 2 bảng
+            # Query cơ bản
             query = self.db.query(User).join(Student, User.id == Student.user_id).filter(User.role == UserRole.STUDENT)
 
-            # Defensive programming: Handle keyword
+            # Search keyword
             if keyword:
                 search = f"%{keyword}%"
                 query = query.filter(
@@ -114,10 +130,8 @@ class StudentService:
             if status:
                 query = query.filter(Student.academic_status == status)
 
-            # Đếm tổng số records
+            # Đếm tổng số & Phân trang
             total = query.count()
-
-            # Phân trang
             users = query.offset((page - 1) * size).limit(size).all()
 
             # Mapping response

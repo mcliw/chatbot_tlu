@@ -15,27 +15,30 @@ def read_user_me(
     current_user: User = Depends(deps.get_current_active_user),
 ):
     """
-    Mobile: Lấy thông tin cá nhân của user đang đăng nhập
+    Mobile: Lấy thông tin cá nhân (Profile) của user đang đăng nhập.
     """
     service = StudentService(db)
     return service.get_student_profile(current_user.id)
 
 @router.put("/me", response_model=StudentProfileResponse)
 async def update_user_me(
-    # Sử dụng Optional[...] = Form(None) để FastAPI hiểu rằng trường này có thể không được gửi lên
+    # Các trường thông tin cá nhân (Optional)
     phone: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
-    # Sử dụng Optional[UploadFile] = File(None) để xử lý trường hợp user không chọn ảnh mới
+    
+    # File Avatar (Optional) - Dùng File(None) để handle trường hợp không gửi file
     avatar: Optional[UploadFile] = File(None),
+    
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ):
     """
-    Mobile: Cập nhật Profile.
-    Dùng Form Data để hỗ trợ upload file cùng lúc.
+    Mobile: Cập nhật thông tin cá nhân và Avatar.
+    Sử dụng Multipart/Form-Data.
     """
-    # Convert Form data sang Pydantic model để validate logic nghiệp vụ
+    # 1. Tạo DTO từ Form Data
     update_data = UpdateProfileRequest(phone=phone, address=address)
     
+    # 2. Gọi Service xử lý (Service sẽ lo việc lưu file avatar nếu có)
     service = StudentService(db)
     return await service.update_profile(current_user.id, update_data, avatar)

@@ -10,10 +10,22 @@ class LoginRequest(BaseModel):
 # Schema phản hồi Token sau khi Login
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
     role: str
     user_id: str
     full_name: str
+
+# Schema request để refresh token
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+# Schema phản hồi khi verify auth token
+class AuthTokenResponse(BaseModel):
+    user_id: str
+    role: str
+    is_valid: bool
+    message: str
 
 # Schema Đăng ký sinh viên (Public)
 class StudentRegisterRequest(BaseModel):

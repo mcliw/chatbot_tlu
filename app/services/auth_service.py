@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.user import User, Student, Agent
-from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.schemas.auth_schema import StudentRegisterRequest, LecturerCreateRequest, LoginRequest
 from app.shared.enums import UserRole, AcademicStatus
 
@@ -9,7 +9,7 @@ class AuthService:
     
     @staticmethod
     def authenticate_user(db: Session, login_data: LoginRequest):
-        """Xử lý đăng nhập và cấp token"""
+        """Xử lý đăng nhập và cấp access token + refresh token"""
         # 1. Tìm user theo email
         user = db.query(User).filter(User.email == login_data.email).first()
         if not user:
@@ -23,11 +23,13 @@ class AuthService:
         if not user.is_active:
              raise HTTPException(status_code=400, detail="Tài khoản đã bị khóa")
 
-        # 4. Tạo token
+        # 4. Tạo access token và refresh token
         access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
+        refresh_token = create_refresh_token(data={"sub": user.id, "role": user.role.value})
         
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "role": user.role.value,
             "user_id": user.id,
@@ -116,3 +118,48 @@ class AuthService:
         user.password_hash = get_password_hash(new_pass)
         db.commit()
         return {"message": "Đổi mật khẩu thành công"}
+
+    @staticmethod
+    def refresh_access_token(db: Session, user_id: str, user_role: str):
+        """Tạo access token mới từ refresh token"""
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User không tồn tại")
+        
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Tài khoản đã bị khóa")
+        
+        # Tạo access token mới
+        access_token = create_access_token(data={"sub": user.id, "role": user_role})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+
+    @staticmethod
+    def verify_auth_token(db: Session, user_id: str, user_role: str):
+        """Xác minh token hợp lệ và trả về thông tin user"""
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return {
+                "user_id": user_id,
+                "role": user_role,
+                "is_valid": False,
+                "message": "User không tồn tại"
+            }
+        
+        if not user.is_active:
+            return {
+                "user_id": user_id,
+                "role": user_role,
+                "is_valid": False,
+                "message": "Tài khoản đã bị khóa"
+            }
+        
+        return {
+            "user_id": user_id,
+            "role": user_role,
+            "is_valid": True,
+            "message": "Token hợp lệ"
+        }

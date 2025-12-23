@@ -7,9 +7,9 @@ from app.database.session import get_db
 from app.services.auth_service import AuthService
 from app.schemas.auth_schema import (
     LoginRequest, TokenResponse, StudentRegisterRequest, 
-    LecturerCreateRequest, ChangePasswordRequest
+    LecturerCreateRequest, ChangePasswordRequest, RefreshTokenRequest, AuthTokenResponse
 )
-from app.core.security import SECRET_KEY, ALGORITHM
+from app.core.security import SECRET_KEY, ALGORITHM, verify_token
 from app.shared.enums import UserRole
 
 router = APIRouter()
@@ -18,17 +18,22 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"/api/v1/auth/login")
 
 # --- DEPENDENCIES (Middleware) ---
+def authenticateToken(token: str = Depends(oauth2_scheme)):
+    """Middleware xác thực token (kiểm tra token có hợp lệ không)"""
+    payload = verify_token(token, token_type="access")
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Access token không hợp lệ hoặc đã hết hạn")
+    return payload
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Giải mã token để lấy user hiện tại"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        role: str = payload.get("role")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Token không hợp lệ")
-        return {"id": user_id, "role": role}
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
+    """Giải mã access token để lấy user hiện tại"""
+    payload = verify_token(token, token_type="access")
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Access token không hợp lệ hoặc đã hết hạn")
+    
+    user_id: str = payload.get("sub")
+    role: str = payload.get("role")
+    return {"id": user_id, "role": role}
 
 def verify_admin_role(current_user: dict = Depends(get_current_user)):
     """Middleware chỉ cho phép Admin"""
@@ -42,6 +47,26 @@ def verify_admin_role(current_user: dict = Depends(get_current_user)):
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     """API Đăng nhập (Dùng chung cho Mobile & Web)"""
     return AuthService.authenticate_user(db, data)
+
+@router.get("/auth_token", response_model=AuthTokenResponse)
+def verify_auth_token(payload: dict = Depends(authenticateToken), db: Session = Depends(get_db)):
+    """API Xác minh token hợp lệ - kiểm tra token và trả về thông tin user"""
+    user_id: str = payload.get("sub")
+    user_role: str = payload.get("role")
+    
+    return AuthService.verify_auth_token(db, user_id, user_role)
+
+@router.post("/refresh")
+def refresh_token(data: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """API Làm mới access token từ refresh token"""
+    payload = verify_token(data.refresh_token, token_type="refresh")
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Refresh token không hợp lệ hoặc đã hết hạn")
+    
+    user_id: str = payload.get("sub")
+    role: str = payload.get("role")
+    
+    return AuthService.refresh_access_token(db, user_id, role)
 
 @router.post("/register", status_code=201)
 def register_student(data: StudentRegisterRequest, db: Session = Depends(get_db)):

@@ -1,4 +1,3 @@
-# app/api/api_v1/routers/students.py
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional

@@ -1,4 +1,3 @@
-# app/schemas/auth_schema.py
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from app.shared.enums import UserRole

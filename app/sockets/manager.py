@@ -1,4 +1,3 @@
-# app/sockets/manager.py
 import socketio
 import logging
 from typing import Optional

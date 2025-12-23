@@ -1,4 +1,3 @@
-# app/sockets/events.py
 import socketio
 import logging
 from typing import Any

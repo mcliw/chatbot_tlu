@@ -1,4 +1,3 @@
-# app/core/security.py
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import jwt
@@ -10,9 +9,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Cấu hình JWT
 ALGORITHM = "HS256"
-# Lưu ý: Nên đưa SECRET_KEY vào .env (settings)
 SECRET_KEY = settings.SECRET_KEY if hasattr(settings, "SECRET_KEY") else "YOUR_SUPER_SECRET_KEY_123"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 ngày
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """So sánh mật khẩu nhập vào và hash trong DB"""

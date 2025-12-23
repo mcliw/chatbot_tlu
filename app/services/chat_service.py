@@ -1,4 +1,3 @@
-# app/services/chat_service.py
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, desc, func
 from fastapi import HTTPException, status

@@ -1,4 +1,3 @@
-# app/api/api_v1/routers/users.py
 from typing import Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, status
 from sqlalchemy.orm import Session

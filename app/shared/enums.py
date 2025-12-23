@@ -28,7 +28,6 @@ class TrainingStatus(str, Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
-# app/shared/enums.py
 from enum import Enum
 
 class UserRole(str, Enum):
